@@ -160,13 +160,7 @@ impl AgentPlanner {
         let max_steps = 10;
 
         while step <= max_steps {
-            let mut current_messages = messages.clone();
-            
-            // Append a reminder at the end of the context window
-            current_messages.push(ProviderMessage {
-                role: "system".into(),
-                content: "IMPORTANT: For greetings, general questions, or chat, respond directly in clear natural markdown. Only output a JSON tool call if the user requested an action on the local machine (such as executing commands or accessing files).".into(),
-            });
+            let current_messages = messages.clone();
 
             // Generate response directly (streaming for UI feedback)
             let req = GenerateRequest {
