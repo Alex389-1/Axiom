@@ -88,15 +88,49 @@ When using deeply aligned or "thinking" models (like `deepseek-r1` or heavily fi
 
 ## Installation & Setup
 
-### Quick Setup (One-Command)
+### Option 1 — Install a Prebuilt Package (Recommended)
 
-If you are on Linux or macOS, you can clone and run the complete setup script in a single command. It will check for Node.js, install Rust, install necessary system dependencies, download Node packages, and launch Axiom:
+Download the latest release from the [Releases page](https://github.com/Alex389-1/Axiom/releases):
+
+| Platform | Package |
+|---|---|
+| Debian / Ubuntu / Mint | `.deb` |
+| Fedora / RHEL / openSUSE | `.rpm` |
+| Arch / CachyOS / Manjaro | Extract from `.deb` (see below) |
+
+**Install commands:**
+
+```bash
+# Debian / Ubuntu / Mint
+sudo dpkg -i Axiom_0.1.0_amd64.deb
+
+# Fedora / RHEL / openSUSE
+sudo rpm -i Axiom-0.1.0-1.x86_64.rpm
+
+# Arch / CachyOS / Manjaro — extract from the .deb
+mkdir -p /tmp/axiom_install && cd /tmp/axiom_install
+ar x /path/to/Axiom_0.1.0_amd64.deb
+tar xf data.tar.gz
+sudo cp usr/bin/axiom-tauri /usr/bin/
+sudo cp usr/share/applications/Axiom.desktop /usr/share/applications/
+sudo cp -r usr/share/icons/hicolor /usr/share/icons/
+# Then launch with:
+axiom-tauri
+```
+
+> **Note for Arch users:** `pacman` cannot install `.rpm` or `.deb` files directly — it only understands its own `.pkg.tar.zst` format. Use the extraction method above, or build from source (Option 2).
+
+---
+
+### Option 2 — Quick Setup from Source (One-Command)
+
+If you are on Linux or macOS, clone and run the all-in-one setup script in a single command. It will check for Node.js, install Rust, install necessary system dependencies, and set up the dev environment:
 
 ```bash
 git clone https://github.com/Alex389-1/Axiom.git && cd Axiom && chmod +x install.sh && ./install.sh
 ```
 
-Or run step-by-step after cloning:
+Or run step-by-step:
 
 ```bash
 git clone https://github.com/Alex389-1/Axiom.git
@@ -105,14 +139,22 @@ chmod +x install.sh
 ./install.sh
 ```
 
-### Manual Installation
+After setup, start the development server:
 
-If you prefer to set up manually:
+```bash
+npm run tauri dev
+```
+
+---
+
+### Option 3 — Manual Installation
 
 **1. Install Prerequisites**
+
 Ensure you have [Rust](https://www.rust-lang.org/tools/install), [Node.js](https://nodejs.org/en/) (v18+), and [Ollama](https://ollama.com/) installed.
 
 **2. Clone & Install**
+
 ```bash
 git clone https://github.com/Alex389-1/Axiom.git
 cd Axiom
@@ -120,17 +162,26 @@ npm install
 ```
 
 **3. Run the Development Server**
+
 ```bash
 npm run tauri dev
 ```
 
 **4. Build for Production**
+
 ```bash
 npm run tauri build
 ```
-Compiled binaries will be available in `src-tauri/target/release/bundle/`.
+
+Compiled packages (`.deb` and `.rpm`) will be in `target/release/bundle/`.
+
+> **Arch/CachyOS note:** If you encounter an AppImage FUSE error during bundling, install `fuse2` first:
+> ```bash
+> sudo pacman -S fuse2
+> ```
 
 ---
+
 
 ## Uninstallation
 
