@@ -94,6 +94,14 @@ async fn dispatch_request(
             }
         }
 
+        DaemonRequest::DeleteLastTurn { session_id } => {
+            let sm = session_manager.read().await;
+            match sm.delete_last_turn(&session_id).await {
+                Ok(_) => DaemonResponse::Ok,
+                Err(e) => DaemonResponse::Error { message: e.to_string() },
+            }
+        }
+
         DaemonRequest::GetConversation { session_id } => {
             let sm = session_manager.read().await;
             match sm.get_conversation(&session_id).await {

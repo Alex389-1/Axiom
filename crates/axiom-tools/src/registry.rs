@@ -22,8 +22,10 @@ pub trait Tool: Send + Sync {
     async fn execute(&self, arguments: Value) -> Result<ToolOutput>;
 }
 
+use serde::{Deserialize, Serialize};
+
 /// Specification exposed to the model in the system prompt.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolSpec {
     pub name: String,
     pub description: String,

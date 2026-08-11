@@ -152,10 +152,11 @@ export function ToolCard({ call, result }: ToolCardProps) {
 
 interface ChatMessageProps {
   message: Message;
-  onRegenerate?: (messageId: string) => void;
+  onRegenerate?: (messageId: string, newContent?: string) => void;
+  isLatestUser?: boolean;
 }
 
-export function ChatMessage({ message, onRegenerate }: ChatMessageProps) {
+export function ChatMessage({ message, onRegenerate, isLatestUser }: ChatMessageProps) {
   const editMessage = useAppStore((s) => s.editMessage);
 
   const [copied, setCopied] = useState(false);
@@ -166,6 +167,8 @@ export function ChatMessage({ message, onRegenerate }: ChatMessageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const infoRef = useRef<HTMLDivElement>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
@@ -201,37 +204,86 @@ export function ChatMessage({ message, onRegenerate }: ChatMessageProps) {
 
   // 3. Text to Speech
   const handleReadAloud = () => {
-    if ('speechSynthesis' in window) {
-      if (isSpeaking) {
+    if (isSpeaking) {
+      if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        setIsSpeaking(false);
-      } else {
-        // Strip think tags for speech
-        const speechText = message.content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setIsSpeaking(false);
+      return;
+    }
+
+    const speechText = message.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    if (!speechText) return;
+
+    if ('speechSynthesis' in window) {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
         const utterance = new SpeechSynthesisUtterance(speechText);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
+        utterance.lang = 'en-US'; 
+        utterance.onend = () => { setIsSpeaking(false); utteranceRef.current = null; };
+        utterance.onerror = () => { setIsSpeaking(false); utteranceRef.current = null; };
+        utteranceRef.current = utterance;
         window.speechSynthesis.speak(utterance);
         setIsSpeaking(true);
+        return;
       }
     }
+
+    // API Fallback for systems without native voices (Linux webkit2gtk bug)
+    const chunks = speechText.match(/[^.!?\n]+[.!?\n]*/g) || [speechText];
+    let currentChunk = 0;
+
+    const playNext = () => {
+      if (currentChunk >= chunks.length) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      let chunk = chunks[currentChunk].trim();
+      if (chunk.length > 200) chunk = chunk.substring(0, 197) + '...';
+      
+      if (!chunk) {
+        currentChunk++;
+        playNext();
+        return;
+      }
+
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunk)}`;
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        currentChunk++;
+        playNext();
+      };
+      audio.onerror = () => setIsSpeaking(false);
+      audio.play().catch(() => setIsSpeaking(false));
+    };
+
+    setIsSpeaking(true);
+    playNext();
   };
 
   // 4. Save Edit
   const handleSaveEdit = () => {
     if (editContent.trim()) {
-      editMessage(message.id, editContent.trim());
-      setIsEditing(false);
+      if (isUser && isLatestUser) {
+        onRegenerate?.(message.id, editContent.trim());
+        setIsEditing(false);
+      } else {
+        editMessage(message.id, editContent.trim());
+        setIsEditing(false);
+      }
     }
   };
 
   if (isTool && message.tool_call) {
     return (
       <div className="chat-message assistant">
-        <div className="assistant-header">
-          <div className="assistant-avatar">Ax</div>
-          <span className="assistant-name">Axiom</span>
-        </div>
         <ToolCard call={message.tool_call} result={message.tool_result} />
       </div>
     );
@@ -262,13 +314,6 @@ export function ChatMessage({ message, onRegenerate }: ChatMessageProps) {
 
   return (
     <div className={`chat-message ${isUser ? 'user' : 'assistant'}`}>
-      {!isUser && (
-        <div className="assistant-header">
-          <div className="assistant-avatar">Ax</div>
-          <span className="assistant-name">Axiom</span>
-        </div>
-      )}
-
       {/* Thinking / Reasoning trace block */}
       {!isUser && thinkingContent && (
         <div className="thinking-block">
@@ -278,53 +323,72 @@ export function ChatMessage({ message, onRegenerate }: ChatMessageProps) {
 
       {/* Message Bubble or Inline Editor */}
       {isEditing ? (
-        <div className="inline-message-editor" style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '6px 0' }}>
+        <div 
+          className="inline-message-editor" 
+          style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: 8, 
+            margin: '8px 0',
+            backgroundColor: 'var(--color-bg-card)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px',
+            boxShadow: 'var(--shadow-sm)'
+          }}
+        >
           <textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             style={{
               width: '100%',
               minHeight: '80px',
-              backgroundColor: '#212121',
-              color: '#ececec',
-              border: '1px solid #444',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              fontSize: '13px',
+              backgroundColor: 'transparent',
+              color: 'var(--color-text-primary)',
+              border: 'none',
+              fontSize: '14px',
+              lineHeight: 1.5,
               fontFamily: 'inherit',
               outline: 'none',
               resize: 'vertical',
             }}
           />
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: '8px' }}>
             <button
               onClick={() => setIsEditing(false)}
               style={{
-                background: '#333',
-                color: '#ccc',
+                background: 'var(--color-bg-hover)',
+                color: 'var(--color-text-primary)',
                 border: 'none',
-                borderRadius: '6px',
-                padding: '4px 12px',
-                fontSize: '12px',
+                borderRadius: 'var(--radius-pill)',
+                padding: '6px 16px',
+                fontSize: '13px',
+                fontWeight: 500,
                 cursor: 'pointer',
+                transition: 'background-color var(--duration-fast)',
               }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-active)')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)')}
             >
               Cancel
             </button>
             <button
               onClick={handleSaveEdit}
               style={{
-                background: '#ffffff',
-                color: '#171717',
+                background: 'var(--color-text-primary)',
+                color: 'var(--color-bg-base)',
                 border: 'none',
-                borderRadius: '6px',
-                padding: '4px 12px',
-                fontSize: '12px',
+                borderRadius: 'var(--radius-pill)',
+                padding: '6px 16px',
+                fontSize: '13px',
                 fontWeight: 600,
                 cursor: 'pointer',
+                transition: 'opacity var(--duration-fast)',
               }}
+              onMouseOver={(e) => (e.currentTarget.style.opacity = '0.8')}
+              onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
             >
-              Save
+              Send
             </button>
           </div>
         </div>
@@ -340,6 +404,47 @@ export function ChatMessage({ message, onRegenerate }: ChatMessageProps) {
             <ReactMarkdown components={markdownComponents}>{mainContent}</ReactMarkdown>
           )}
           {message.streaming && <span className="streaming-cursor" />}
+        </div>
+      )}
+
+      {/* User Action Buttons Toolbar (Only for the latest user message) */}
+      {isUser && isLatestUser && (
+        <div className="message-actions-toolbar" style={{ position: 'relative' }}>
+          {/* 1. Edit */}
+          <button
+            className={`action-btn ${isEditing ? 'active' : ''}`}
+            onClick={() => setIsEditing((v) => !v)}
+            title="Edit Message"
+          >
+            <Pencil size={14} />
+          </button>
+
+          {/* 2. Copy */}
+          <button className="action-btn" onClick={handleCopy} title="Copy Content">
+            {copied ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+          </button>
+
+          {/* 3. Read Aloud */}
+          <button
+            className={`action-btn ${isSpeaking ? 'active' : ''}`}
+            onClick={handleReadAloud}
+            title={isSpeaking ? 'Stop Reading' : 'Read Aloud'}
+          >
+            {isSpeaking ? (
+              <VolumeX size={14} style={{ color: '#10b981' }} />
+            ) : (
+              <Volume2 size={14} />
+            )}
+          </button>
+
+          {/* 4. Retry */}
+          <button
+            className="action-btn"
+            onClick={() => onRegenerate?.(message.id)}
+            title="Retry Output"
+          >
+            <RotateCcw size={14} />
+          </button>
         </div>
       )}
 

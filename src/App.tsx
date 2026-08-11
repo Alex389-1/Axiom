@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -7,63 +7,11 @@ import { Sidebar } from './components/Sidebar/Sidebar';
 import { Chat } from './components/Chat/Chat';
 import { TerminalPanel } from './components/Terminal/TerminalPanel';
 import { PermissionDialog } from './components/Chat/PermissionDialog';
+import { NotesPanel } from './components/Notes/NotesPanel';
+import { WorkspacePanel } from './components/Workspace/WorkspacePanel';
 import { useEventPoller } from './hooks/useEventPoller';
 
 import './index.css';
-
-// ─── Settings panel ────────────────────────────────────────────────────────
-function SettingsPanel() {
-  const { devMode, setDevMode } = useAppStore();
-  return (
-    <div style={{ padding: '24px', color: 'var(--color-text-secondary)', flex: 1, overflowY: 'auto' }}>
-      <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: '16px', color: 'var(--color-text-primary)' }}>
-        Settings
-      </h2>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: 600 }}>
-        <div
-          style={{
-            background: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '12px',
-            padding: '16px',
-          }}
-        >
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '12px' }}>
-            Developer Mode
-          </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={devMode}
-                onChange={(e) => setDevMode(e.target.checked)}
-                style={{ accentColor: 'var(--color-indigo)', width: 16, height: 16 }}
-              />
-              <span>Show token counts, latency, and raw tool call JSON</span>
-            </label>
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '12px',
-            padding: '16px',
-          }}
-        >
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '8px' }}>
-            Axiom Agent Backend
-          </h3>
-          <p style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--color-text-muted)' }}>
-            External tool calling runtime for non-thinking local LLMs.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Main App Component ───────────────────────────────────────────────────────
 
@@ -78,6 +26,7 @@ export default function App() {
     setModels,
     setSelectedModel,
     setRecentProjects,
+    currentView,
   } = useAppStore();
 
   // Start event polling
@@ -112,7 +61,18 @@ export default function App() {
     return () => clearInterval(interval);
   }, [daemonConnected, initApp]);
 
-  const [view] = useState<'chat' | 'settings'>('chat');
+  // Render Main View
+  const renderMainView = () => {
+    switch (currentView) {
+      case 'notes':
+        return <NotesPanel />;
+      case 'workspace':
+        return <WorkspacePanel />;
+      case 'chat':
+      default:
+        return <Chat />;
+    }
+  };
 
   return (
     <div className={`app-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -148,8 +108,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Chat or Settings view */}
-        {view === 'settings' ? <SettingsPanel /> : <Chat />}
+        {/* Chat, Notes, or Workspace view */}
+        {renderMainView()}
 
         {/* Integrated Terminal Panel */}
         <TerminalPanel />
@@ -173,8 +133,8 @@ export default function App() {
               }}
               title="Click to collapse / uncollapse terminal"
             >
-              <div className={`status-dot ${terminalCollapsed ? 'offline' : ''}`} />
-              <span>Open Terminal {terminalCollapsed ? '(Collapsed)' : ''}</span>
+              <div className="status-dot" />
+              <span>Open Terminal</span>
             </div>
 
             <div className="status-dot-item">

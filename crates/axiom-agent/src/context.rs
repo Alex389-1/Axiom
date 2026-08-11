@@ -26,25 +26,35 @@ impl ContextManager {
     }
 
     /// Build the system prompt for the agent, including tool specs.
-    pub fn build_system_prompt(&self, _tool_specs_json: &str) -> String {
+    pub fn build_system_prompt(&self, tool_specs_json: &str) -> String {
         let project_info = self
             .project_root
             .as_ref()
             .map(|p| format!("Working Directory: {}", p.display()))
             .unwrap_or_else(|| "No workspace selected.".into());
 
-        format!(
+        let mut prompt = format!(
             r#"You are Axiom, a sleek and intelligent AI assistant for software development powered by local language models.
 
 {project_info}
 
 # Instructions
+- **CRITICAL**: You are running in a local environment on the user's machine. You CAN and MUST execute terminal commands, read/write files, and perform actions when requested. Do NOT refuse by saying "I cannot execute commands" or "I am an AI".
 - Provide clear, well-structured, and helpful answers.
 - When asked for explanations, concepts, or "easy" overviews, provide simple natural language explanations first before presenting code examples.
 - Format all code snippets with standard markdown code blocks and syntax highlighting.
 - Be direct, conversational, and answer exactly what the user asks."#,
             project_info = project_info,
-        )
+        );
+
+        if !tool_specs_json.is_empty() {
+            prompt.push_str(&format!(
+                "\n\n# Tools Available\nYou have access to the following tools to interact with the user's system. You may call a tool by outputting a JSON object matching this schema: {{\"tool\": \"<tool_name>\", \"arguments\": {{...}}}}. You can output your reasoning first, but you must include the JSON object to execute the tool.\n\n{}",
+                tool_specs_json
+            ));
+        }
+
+        prompt
     }
 
     /// Assemble context for a new request, enforcing the token budget.

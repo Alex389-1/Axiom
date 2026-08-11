@@ -23,6 +23,7 @@ import { useAppStore } from '../../store';
 import { ChatMessage, AgentTimeline, markdownComponents } from './ChatMessage';
 import { ModelSelector } from './ModelSelector';
 import ReactMarkdown from 'react-markdown';
+import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 
 interface AttachedFile {
   id: string;
@@ -59,14 +60,16 @@ export function Chat() {
   const [showControlsPopover, setShowControlsPopover] = useState(false);
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(4096);
-  const [isRecording, setIsRecording] = useState(false);
+
+  const { isRecording, isTranscribing, toggleRecording } = useAudioRecorder((text) => {
+    setInput((prev) => (prev ? prev + ' ' + text : text));
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
 
@@ -165,51 +168,6 @@ export function Chat() {
     }
   };
 
-  // 2. Voice Input (Speech Recognition) Handler
-  const toggleVoiceInput = () => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert('Speech Recognition is not supported by your browser environment.');
-      return;
-    }
-
-    if (isRecording) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      setIsRecording(false);
-    } else {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = () => setIsRecording(true);
-        recognition.onend = () => setIsRecording(false);
-        recognition.onerror = () => setIsRecording(false);
-
-        recognition.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          if (transcript) {
-            setInput((prev) => (prev ? prev + ' ' + transcript : transcript));
-          }
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-      } catch (err) {
-        console.error('Speech recognition error:', err);
-        setIsRecording(false);
-      }
-    }
-  };
-
   const handleSend = useCallback(async () => {
     const rawInput = input.trim();
     if ((!rawInput && attachedFiles.length === 0) || isAgentRunning) return;
@@ -296,7 +254,7 @@ export function Chat() {
   }, [sessionId, setAgentRunning, addMessage, selectedModel]);
 
   const handleRegenerate = useCallback(
-    async (messageId: string) => {
+    async (messageId: string, newContent?: string) => {
       if (isAgentRunning) return;
       const idx = messages.findIndex((m) => m.id === messageId);
       if (idx === -1) return;
@@ -304,7 +262,7 @@ export function Chat() {
       let userPrompt = '';
       for (let i = idx; i >= 0; i--) {
         if (messages[i].role === 'user') {
-          userPrompt = messages[i].content;
+          userPrompt = newContent || messages[i].content;
           break;
         }
       }
@@ -330,13 +288,26 @@ export function Chat() {
       }
 
       try {
+        useAppStore.getState().deleteLastTurn();
+        
+        // Optimistically add the user message back to the UI BEFORE making network calls
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: userPrompt,
+          timestamp: new Date().toISOString(),
+        });
+        
+        setStreamingChatId(useAppStore.getState().activeChatId);
+
+        await invoke('delete_last_turn', { sessionId: currentSessionId });
         await invoke('send_message', { sessionId: currentSessionId, content: userPrompt });
       } catch (err) {
         console.error('regenerate send_message failed:', err);
         setAgentRunning(false);
       }
     },
-    [messages, isAgentRunning, sessionId, projectPath, selectedModel, setAgentRunning, clearAgentSteps]
+    [messages, isAgentRunning, sessionId, projectPath, selectedModel, setAgentRunning, clearAgentSteps, addMessage, setStreamingChatId]
   );
 
   const handleKeyDown = useCallback(
@@ -512,18 +483,27 @@ export function Chat() {
             </div>
           )}
 
-          {messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} onRegenerate={handleRegenerate} />
-          ))}
+          {(() => {
+            let lastUserMessageId = null;
+            for (let i = messages.length - 1; i >= 0; i--) {
+              if (messages[i].role === 'user') {
+                lastUserMessageId = messages[i].id;
+                break;
+              }
+            }
+            return messages.map((msg) => (
+              <ChatMessage 
+                key={msg.id} 
+                message={msg} 
+                onRegenerate={handleRegenerate}
+                isLatestUser={msg.id === lastUserMessageId}
+              />
+            ));
+          })()}
 
           {/* Live Streaming & Thinking assistant response */}
           {(isAgentRunning || streamingContent) && (!streamingChatId || streamingChatId === activeChatId) && (
             <div className="chat-message assistant">
-              <div className="assistant-header">
-                <div className="assistant-avatar">Ax</div>
-                <span className="assistant-name">Axiom</span>
-              </div>
-
               {/* 1. Simple Thinking Indicator while waiting for tokens */}
               {!streamingContent && (
                 <div className="thinking-status-indicator">
@@ -611,7 +591,7 @@ export function Chat() {
             id="chat-input"
             ref={textareaRef}
             className="floating-textarea"
-            placeholder={isRecording ? 'Listening... Speak now...' : 'Send a Message'}
+            placeholder={isRecording ? 'Listening... Speak now...' : isTranscribing ? 'Transcribing audio...' : 'Send a Message'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -707,8 +687,9 @@ export function Chat() {
               {/* 3. Voice Input (Mic) */}
               <button
                 className={`dock-btn ${isRecording ? 'active' : ''}`}
-                title={isRecording ? 'Stop Voice Recording' : 'Start Voice Input'}
-                onClick={toggleVoiceInput}
+                title={isRecording ? 'Stop Voice Recording' : isTranscribing ? 'Transcribing...' : 'Start Voice Input'}
+                onClick={toggleRecording}
+                disabled={isTranscribing}
                 style={{ color: isRecording ? '#f43f5e' : undefined }}
               >
                 {isRecording ? <MicOff size={16} className="spin" /> : <Mic size={16} />}

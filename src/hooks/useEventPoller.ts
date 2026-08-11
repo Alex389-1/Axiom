@@ -74,6 +74,10 @@ function handleEvent(
       break;
 
     case 'tool_call_started':
+      if (event.call.tool === 'terminal.exec' && event.call.arguments.command) {
+        console.log('[DEBUG] Dispatching llm_terminal start for:', event.call.arguments.command);
+        window.dispatchEvent(new CustomEvent('llm_terminal', { detail: `\r\n\x1b[35m[Axiom]\x1b[0m 🚀 Executing: ${event.call.arguments.command}\r\n` }));
+      }
       actions.addAgentStep({
         step: event.step,
         description: `${event.call.tool}(${summarizeArgs(event.call.arguments)})`,
@@ -82,6 +86,16 @@ function handleEvent(
       break;
 
     case 'tool_call_completed':
+      const res = event.result as any;
+      if (res && typeof res === 'object' && ('stdout' in res || 'stderr' in res)) {
+        console.log('[DEBUG] Dispatching llm_terminal completed for:', res);
+        if (res.stdout) {
+          window.dispatchEvent(new CustomEvent('llm_terminal', { detail: `\x1b[90m${res.stdout.replace(/\n/g, '\r\n')}\x1b[0m\r\n` }));
+        }
+        if (res.stderr) {
+          window.dispatchEvent(new CustomEvent('llm_terminal', { detail: `\x1b[31m${res.stderr.replace(/\n/g, '\r\n')}\x1b[0m\r\n` }));
+        }
+      }
       actions.updateAgentStep({
         step: event.step,
         description: `Step ${event.step}`,

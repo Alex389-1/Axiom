@@ -74,6 +74,18 @@ Axiom is built with cross-platform technologies and is designed to run locally o
 
 ---
 
+## Known Issues
+
+### "Thinking" Models Refusing Tool Execution
+When using deeply aligned or "thinking" models (like `deepseek-r1` or heavily fine-tuned variants), you may find that the model refuses to execute terminal commands (e.g., stating *"I cannot directly execute commands on your local machine"*), despite the runtime supporting it.
+
+**Potential Solutions:**
+1. **Model Selection**: Switch to a standard coder model (like `llama3.1` or `qwen2.5-coder`) which are less constrained by default RLHF guardrails.
+2. **Override Prompts**: Axiom dynamically injects override instructions (`CRITICAL REMINDER: You are a local execution agent...`) into the system prompt to bypass these refusals. Ensure you are running the latest compiled backend daemon.
+3. **Custom Model Profiles**: In Ollama, you can create a custom `Modelfile` that explicitly instructs the model to act as a system agent and overrides its default system prompt.
+
+---
+
 ## Installation & Setup
 
 ### Quick Setup (One-Command)

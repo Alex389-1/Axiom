@@ -16,6 +16,13 @@ fn tool_tag_re() -> &'static Regex {
     })
 }
 
+fn think_tag_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"(?s)<think>.*?</think>").expect("think tag regex")
+    })
+}
+
 fn command_tag_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
@@ -133,10 +140,16 @@ fn try_parse_structured(text: &str) -> Option<Action> {
 }
 
 fn try_parse_repaired(text: &str) -> Option<Action> {
-    // Find the outermost JSON object via bracket matching
-    let json_str = extract_json_object(text)?;
-    let v: Value = serde_json::from_str(&json_str).ok()?;
-    json_to_action(v)
+    // Find all JSON objects via bracket matching and try them
+    let json_strs = extract_json_objects(text);
+    for json_str in json_strs {
+        if let Ok(v) = serde_json::from_str(&json_str) {
+            if let Some(action) = json_to_action(v) {
+                return Some(action);
+            }
+        }
+    }
+    None
 }
 
 fn try_parse_tagged(text: &str) -> Option<Action> {
@@ -274,33 +287,49 @@ fn map_react_action(action: &str, input: &str) -> (String, Value) {
     }
 }
 
-/// Extract the first complete JSON object from text using bracket matching.
-fn extract_json_object(text: &str) -> Option<String> {
-    let start = text.find('{')?;
+/// Extract all complete JSON objects from text using bracket matching.
+fn extract_json_objects(text: &str) -> Vec<String> {
+    let mut objects = Vec::new();
     let bytes = text.as_bytes();
-    let mut depth = 0i32;
-    let mut in_string = false;
-    let mut escape_next = false;
+    let mut i = 0;
 
-    for (i, &b) in bytes[start..].iter().enumerate() {
-        if escape_next {
-            escape_next = false;
-            continue;
-        }
-        match b {
-            b'\\' if in_string => escape_next = true,
-            b'"' => in_string = !in_string,
-            b'{' if !in_string => depth += 1,
-            b'}' if !in_string => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(text[start..=start + i].to_string());
+    while i < bytes.len() {
+        if bytes[i] == b'{' {
+            let start = i;
+            let mut depth = 0i32;
+            let mut in_string = false;
+            let mut escape_next = false;
+            let mut found_end = false;
+
+            for (j, &b) in bytes[start..].iter().enumerate() {
+                if escape_next {
+                    escape_next = false;
+                    continue;
+                }
+                match b {
+                    b'\\' if in_string => escape_next = true,
+                    b'"' => in_string = !in_string,
+                    b'{' if !in_string => depth += 1,
+                    b'}' if !in_string => {
+                        depth -= 1;
+                        if depth == 0 {
+                            objects.push(text[start..=start + j].to_string());
+                            i = start + j; // advance outer loop to end of object
+                            found_end = true;
+                            break;
+                        }
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
+            if !found_end {
+                // unmatched brace, just skip the starting '{'
+            }
         }
+        i += 1;
     }
-    None
+    
+    objects
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -345,8 +374,11 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_json_object() {
-        let text = "prefix {\"a\":1} suffix";
-        assert_eq!(extract_json_object(text), Some("{\"a\":1}".to_string()));
+    fn test_extract_json_objects() {
+        let text = "prefix {\"a\":1} suffix {\"b\": 2}";
+        let objs = extract_json_objects(text);
+        assert_eq!(objs.len(), 2);
+        assert_eq!(objs[0], "{\"a\":1}");
+        assert_eq!(objs[1], "{\"b\": 2}");
     }
 }

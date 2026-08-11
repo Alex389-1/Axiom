@@ -123,6 +123,19 @@ export function TerminalPanel() {
     return () => clearInterval(interval);
   }, [sessionId, initialized, terminalCollapsed]);
 
+  // Listen for LLM background command outputs
+  useEffect(() => {
+    const handleLlmTerminal = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      console.log('[DEBUG] TerminalPanel received llm_terminal event:', customEvent.detail);
+      if (termRef.current) {
+        termRef.current.write(customEvent.detail);
+      }
+    };
+    window.addEventListener('llm_terminal', handleLlmTerminal);
+    return () => window.removeEventListener('llm_terminal', handleLlmTerminal);
+  }, [initialized]);
+
   if (terminalCollapsed) {
     return null;
   }

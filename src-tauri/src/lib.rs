@@ -1,3 +1,4 @@
+mod audio;
 mod commands;
 mod daemon;
 
@@ -11,6 +12,7 @@ pub fn run() {
         .setup(|app| {
             // Register the DaemonClient as managed state so commands can access it
             app.manage(daemon::DaemonClient::new());
+            app.manage(audio::AudioRecorderState::default());
 
             // Start the daemon if it's not already running (fire-and-forget)
             let handle = app.handle().clone();
@@ -25,6 +27,7 @@ pub fn run() {
             commands::list_models,
             commands::create_session,
             commands::send_message,
+            commands::delete_last_turn,
             commands::get_conversation,
             commands::get_terminal_output,
             commands::write_terminal,
@@ -37,6 +40,8 @@ pub fn run() {
             commands::get_config,
             commands::poll_events,
             commands::stop_agent,
+            commands::start_recording_cmd,
+            commands::stop_recording_and_transcribe_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Axiom");

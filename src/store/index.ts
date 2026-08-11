@@ -40,6 +40,15 @@ export interface ChatSession {
   title: string;
   messages: Message[];
   created_at: string;
+  folderId?: string;
+  isPinned?: boolean;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  isOpen: boolean;
+  isPinned?: boolean;
 }
 
 export interface ModelInfo {
@@ -110,8 +119,10 @@ interface AppState {
   sidebarCollapsed: boolean;
 
   // Actions
-  addChat: (title?: string) => void;
+  addChat: (title?: string, targetFolderId?: string) => void;
   deleteChat: (id: string) => void;
+  renameChat: (id: string, title: string) => void;
+  toggleChatPin: (id: string) => void;
   selectChat: (id: string) => void;
   setSessionId: (id: string) => void;
   setProjectPath: (p: string) => void;
@@ -119,6 +130,7 @@ interface AppState {
   setSelectedModel: (m: string) => void;
   addMessage: (m: Message, targetChatId?: string) => void;
   editMessage: (id: string, content: string) => void;
+  deleteLastTurn: () => void;
   appendStreamToken: (token: string) => void;
   setStreamingContent: (content: string) => void;
   setStreamingChatId: (id: string | null) => void;
@@ -137,6 +149,24 @@ interface AppState {
   setDevMode: (v: boolean) => void;
   setDaemonConnected: (v: boolean) => void;
   setRecentProjects: (p: string[]) => void;
+  // View State
+  currentView: 'chat' | 'notes' | 'workspace';
+  setCurrentView: (view: 'chat' | 'notes' | 'workspace') => void;
+
+  // Notes State
+  notesContent: string;
+  setNotesContent: (content: string) => void;
+
+  // Folders State
+  folders: Folder[];
+  activeFolderId: string | null;
+  addFolder: (name: string) => void;
+  renameFolder: (id: string, name: string) => void;
+  toggleFolder: (id: string) => void;
+  toggleFolderPin: (id: string) => void;
+  deleteFolder: (id: string) => void;
+  setActiveFolderId: (id: string | null) => void;
+  setChatFolder: (chatId: string, folderId: string | null) => void;
 }
 
 const initialDemoChats: ChatSession[] = [
@@ -191,20 +221,34 @@ export const useAppStore = create<AppState>()(
       devMode: false,
       daemonConnected: false,
       sidebarCollapsed: false,
+      currentView: 'chat',
+      notesContent: '# Axiom Notes\n\nA global scratchpad for thoughts, prompts, and context.',
+      folders: [],
+      activeFolderId: null,
 
-      addChat: (title) => {
+      addChat: (title, targetFolderId) => {
         const newId = `chat-${Date.now()}`;
+        const finalFolderId = targetFolderId !== undefined ? targetFolderId : get().activeFolderId || undefined;
+        
+        if (finalFolderId) {
+          set((s) => ({
+            folders: s.folders.map(f => f.id === finalFolderId ? { ...f, isOpen: true } : f)
+          }));
+        }
+
         const newChat: ChatSession = {
           id: newId,
           title: title || `New Chat ${get().chats.length + 1}`,
           messages: [],
           created_at: new Date().toISOString(),
+          folderId: finalFolderId,
         };
         set((s) => ({
           chats: [newChat, ...s.chats],
           activeChatId: newId,
           messages: [],
           agentSteps: [],
+          currentView: 'chat',
         }));
       },
 
@@ -239,6 +283,18 @@ export const useAppStore = create<AppState>()(
         });
       },
 
+      renameChat: (id, title) => {
+        set((s) => ({
+          chats: s.chats.map((c) => (c.id === id ? { ...c, title } : c)),
+        }));
+      },
+
+      toggleChatPin: (id) => {
+        set((s) => ({
+          chats: s.chats.map((c) => (c.id === id ? { ...c, isPinned: !c.isPinned } : c)),
+        }));
+      },
+
       selectChat: (id) => {
         const chat = get().chats.find((c) => c.id === id);
         if (chat) {
@@ -246,6 +302,7 @@ export const useAppStore = create<AppState>()(
             activeChatId: id,
             messages: chat.messages,
             agentSteps: [],
+            currentView: 'chat',
           });
         }
       },
@@ -286,6 +343,23 @@ export const useAppStore = create<AppState>()(
             return c;
           });
           return { messages: updatedMessages, chats: updatedChats };
+        });
+      },
+
+      deleteLastTurn: () => {
+        set((state) => {
+          const msgs = [...state.messages];
+          while (msgs.length > 0) {
+            const m = msgs.pop();
+            if (m?.role === 'user') {
+              break;
+            }
+          }
+          // Also sync it back to the current active chat session so it doesn't reappear on reload
+          const updatedChats = state.chats.map((c) =>
+            c.id === state.activeChatId ? { ...c, messages: msgs } : c
+          );
+          return { messages: msgs, chats: updatedChats };
         });
       },
 
@@ -342,6 +416,21 @@ export const useAppStore = create<AppState>()(
       setDevMode: (v) => set({ devMode: v }),
       setDaemonConnected: (v) => set({ daemonConnected: v }),
       setRecentProjects: (p) => set({ recentProjects: p }),
+      setCurrentView: (v) => set({ currentView: v }),
+      setNotesContent: (c) => set({ notesContent: c }),
+      addFolder: (name) => set((s) => ({ folders: [...s.folders, { id: `folder-${Date.now()}`, name, isOpen: true }] })),
+      renameFolder: (id, name) => set((s) => ({ folders: s.folders.map(f => f.id === id ? { ...f, name } : f) })),
+      toggleFolder: (id) => set((s) => ({ folders: s.folders.map(f => f.id === id ? { ...f, isOpen: !f.isOpen } : f) })),
+      toggleFolderPin: (id) => set((s) => ({ folders: s.folders.map(f => f.id === id ? { ...f, isPinned: !f.isPinned } : f) })),
+      deleteFolder: (id) => set((s) => ({ 
+        folders: s.folders.filter(f => f.id !== id),
+        chats: s.chats.map(c => c.folderId === id ? { ...c, folderId: undefined } : c),
+        activeFolderId: s.activeFolderId === id ? null : s.activeFolderId
+      })),
+      setActiveFolderId: (id) => set({ activeFolderId: id }),
+      setChatFolder: (chatId, folderId) => set((s) => ({
+        chats: s.chats.map(c => c.id === chatId ? { ...c, folderId: folderId || undefined } : c)
+      })),
     }),
     {
       name: 'axiom-chats-storage',
@@ -352,6 +441,10 @@ export const useAppStore = create<AppState>()(
         selectedModel: state.selectedModel,
         recentProjects: state.recentProjects,
         devMode: state.devMode,
+        currentView: state.currentView,
+        notesContent: state.notesContent,
+        folders: state.folders,
+        activeFolderId: state.activeFolderId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

@@ -248,6 +248,9 @@ pub enum DaemonRequest {
         session_id: String,
         content: String,
     },
+    DeleteLastTurn {
+        session_id: String,
+    },
     GetConversation {
         session_id: String,
     },

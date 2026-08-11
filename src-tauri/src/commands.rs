@@ -3,7 +3,7 @@ use axiom_core::types::{
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::State;
+use tauri::{Manager, State};
 
 use crate::daemon::DaemonClient;
 
@@ -38,6 +38,21 @@ pub async fn create_session(
         .await?;
     match resp {
         DaemonResponse::Session { session_id } => Ok(session_id),
+        DaemonResponse::Error { message } => Err(message),
+        _ => Err("Unexpected response".into()),
+    }
+}
+
+#[tauri::command]
+pub async fn delete_last_turn(
+    session_id: String,
+    client: State<'_, DaemonClient>,
+) -> Result<(), String> {
+    let resp = client
+        .send(DaemonRequest::DeleteLastTurn { session_id })
+        .await?;
+    match resp {
+        DaemonResponse::Ok => Ok(()),
         DaemonResponse::Error { message } => Err(message),
         _ => Err("Unexpected response".into()),
     }
@@ -232,4 +247,28 @@ pub async fn poll_events(
         DaemonResponse::Error { message } => Err(message),
         _ => Err("Unexpected response".into()),
     }
+}
+
+#[tauri::command]
+pub async fn start_recording_cmd(
+    state: tauri::State<'_, crate::audio::AudioRecorderState>,
+) -> Result<(), String> {
+    crate::audio::start_recording(&state).map_err(|e| format!("Failed to start recording: {}", e))
+}
+
+#[tauri::command]
+pub async fn stop_recording_and_transcribe_cmd(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, crate::audio::AudioRecorderState>,
+) -> Result<String, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    let (audio_data, sample_rate) = crate::audio::stop_recording(&state);
+
+    crate::audio::transcribe_audio(app_data_dir, audio_data, sample_rate)
+        .await
+        .map_err(|e| format!("Transcription failed: {}", e))
 }

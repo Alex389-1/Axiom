@@ -26,3 +26,8 @@ tracing-subscriber = { workspace = true }
 # Daemon IPC
 axiom-core = { path = "../crates/axiom-core" }
 directories = { workspace = true }
+whisper-rs = "0.16.0"
+reqwest.workspace = true
+bytes.workspace = true
+cpal = "0.18.1"
+rubato = "5.0.0"

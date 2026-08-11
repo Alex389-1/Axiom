@@ -247,6 +247,31 @@ impl SessionManager {
         Ok(events)
     }
 
+    pub async fn delete_last_turn(&self, session_id: &str) -> Result<()> {
+        let session = self.get_session(session_id)?;
+        let mut planner = session.planner.lock().await;
+        
+        // Pop from in-memory conversation
+        let _ = planner.pop_last_turn();
+
+        // Delete from SQLite database (the last user message and anything after it)
+        let _ = sqlx::query(
+            "DELETE FROM messages 
+             WHERE conversation_id = ?1 
+             AND timestamp >= (
+                 SELECT timestamp FROM messages 
+                 WHERE conversation_id = ?1 AND role = 'user' 
+                 ORDER BY timestamp DESC LIMIT 1
+             )"
+        )
+        .bind(session_id)
+        .execute(&self.db)
+        .await;
+
+        info!("Deleted last turn for session {}", session_id);
+        Ok(())
+    }
+
     pub async fn get_conversation(&self, session_id: &str) -> Result<Vec<ConversationMessage>> {
         let rows = sqlx::query_as::<_, MessageRow>(
             "SELECT id, role, content, tool_call_json, tool_result_json, timestamp FROM messages WHERE conversation_id = ?1 ORDER BY timestamp"

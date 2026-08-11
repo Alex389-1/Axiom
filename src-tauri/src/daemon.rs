@@ -70,25 +70,24 @@ impl DaemonClient {
             .map_err(|e| e.to_string())?;
         stream.flush().await.map_err(|e| e.to_string())?;
 
-        // Read response line
-        // We need a BufReader but can't wrap a mutable reference — use a temporary approach.
-        // For MVP: read byte-by-byte until newline.
-        let mut response_line = String::new();
+        // Read response line (collect raw bytes to prevent UTF-8 corruption of multi-byte characters like emojis)
+        let mut response_bytes = Vec::new();
         let mut buf = [0u8; 1];
         loop {
             use tokio::io::AsyncReadExt;
             match stream.read(&mut buf).await {
                 Ok(0) => break,
                 Ok(_) => {
-                    let ch = buf[0] as char;
-                    if ch == '\n' {
+                    if buf[0] == b'\n' {
                         break;
                     }
-                    response_line.push(ch);
+                    response_bytes.push(buf[0]);
                 }
                 Err(e) => return Err(e.to_string()),
             }
         }
+
+        let response_line = String::from_utf8(response_bytes).map_err(|e| format!("UTF-8 error: {}", e))?;
 
         serde_json::from_str(&response_line).map_err(|e| format!("Parse error: {}: {}", e, response_line))
     }
