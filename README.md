@@ -102,10 +102,14 @@ Download the latest release from the [Releases page](https://github.com/Alex389-
 
 #### Option A: Run / Install the AppImage (Recommended for Arch / CachyOS / Any Linux)
 
+> **Arch / CachyOS Note:** If you get `error loading libfuse.so.2`, install `fuse2` (`sudo pacman -S fuse2`) or run with `APPIMAGE_EXTRACT_AND_RUN=1`.
+
 ```bash
-# 1. Run directly:
-chmod +x target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage
+# 1. Run directly (with FUSE):
 ./target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage
+
+# Or without FUSE:
+APPIMAGE_EXTRACT_AND_RUN=1 ./target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage
 
 # 2. (Optional) Install system-wide:
 sudo cp target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage /usr/local/bin/axiom
