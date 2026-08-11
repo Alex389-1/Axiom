@@ -36,4 +36,4 @@ node node_modules/esbuild/install.js 2>/dev/null || true
 
 echo "✅ Setup Complete!"
 echo "👉 To start the development server, run: npm run tauri dev"
-echo "👉 To build for production, run: npm run tauri build"
+echo "👉 To build for production (Linux), run: APPIMAGE_EXTRACT_AND_RUN=1 npm run tauri build"
