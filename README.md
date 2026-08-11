@@ -73,6 +73,23 @@ The compiled binaries will be located in the `src-tauri/target/release/bundle/` 
 
 ---
 
+## Uninstallation
+
+If you wish to remove Axiom and clean up all its dependencies and build artifacts from your machine, you can run the provided uninstall script:
+
+```bash
+chmod +x uninstall.sh
+./uninstall.sh
+```
+
+To completely remove the source code, delete the repository directory:
+```bash
+cd ..
+rm -rf Axiom
+```
+
+---
+
 ## Contributing
 
 Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Alex389-1/Axiom/issues).
