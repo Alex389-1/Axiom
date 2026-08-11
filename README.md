@@ -107,13 +107,16 @@ sudo dpkg -i Axiom_0.1.0_amd64.deb
 # Fedora / RHEL / openSUSE
 sudo rpm -i Axiom-0.1.0-1.x86_64.rpm
 
-# Arch / CachyOS / Manjaro — extract from the .deb
+# Arch / CachyOS / Manjaro — extract from the .deb + copy daemon binary
 mkdir -p /tmp/axiom_install && cd /tmp/axiom_install
 ar x /path/to/Axiom_0.1.0_amd64.deb
 tar xf data.tar.gz
 sudo cp usr/bin/axiom-tauri /usr/bin/
 sudo cp usr/share/applications/Axiom.desktop /usr/share/applications/
 sudo cp -r usr/share/icons/hicolor /usr/share/icons/
+# Also install the daemon (required — axiom-tauri won't work without it)
+sudo cp /path/to/target/release/axiom-daemon /usr/bin/axiom-daemon
+sudo chmod +x /usr/bin/axiom-daemon
 # Then launch with:
 axiom-tauri
 ```
