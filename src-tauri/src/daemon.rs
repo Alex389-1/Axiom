@@ -118,6 +118,11 @@ pub async fn start_daemon_if_needed(app: &AppHandle) -> anyhow::Result<()> {
 
     info!("Starting axiom-daemon...");
 
+    // Ensure the socket directory exists before spawning
+    if let Some(parent) = socket.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+
     // Find the daemon binary next to the current executable
     let daemon_bin = std::env::current_exe()
         .ok()
@@ -129,12 +134,20 @@ pub async fn start_daemon_if_needed(app: &AppHandle) -> anyhow::Result<()> {
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start daemon: {}", e))?;
 
-        // Wait for socket to appear
-        for _ in 0..20 {
+        // Poll until we can actually connect (not just until the socket file appears)
+        let mut connected = false;
+        for _ in 0..40 {
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-            if socket.exists() {
+            if UnixStream::connect(&socket).await.is_ok() {
+                connected = true;
                 break;
             }
+        }
+
+        if connected {
+            info!("Daemon ready at {}", socket.display());
+        } else {
+            warn!("Daemon did not become ready within 10s at {}", socket.display());
         }
     } else {
         warn!("Daemon binary not found at {}; skipping auto-start", daemon_bin.display());
