@@ -1,0 +1,28 @@
+[package]
+name = "axiom-tauri"
+version = "0.1.0"
+description = "Axiom — GUI for non-thinking local LLMs with tool calling"
+authors = []
+edition = "2021"
+
+[lib]
+name = "axiom_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-shell = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Daemon IPC
+axiom-core = { path = "../crates/axiom-core" }
+directories = { workspace = true }

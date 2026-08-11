@@ -1,0 +1,1 @@
+Rust CLI script for processing files

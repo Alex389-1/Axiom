@@ -1,0 +1,28 @@
+[package]
+name = "axiom-daemon"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "axiom-daemon"
+path = "src/main.rs"
+
+[dependencies]
+axiom-core = { path = "../axiom-core" }
+axiom-tools = { path = "../axiom-tools" }
+axiom-agent = { path = "../axiom-agent" }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+directories = { workspace = true }
+futures = { workspace = true }
+bytes = { workspace = true }
+tokio-util = { workspace = true }
+portable-pty = { workspace = true }

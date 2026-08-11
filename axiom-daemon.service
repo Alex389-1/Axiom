@@ -1,0 +1,16 @@
+[Unit]
+Description=Axiom AI Agent Daemon
+Documentation=https://github.com/axiom-agent/axiom
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/axiom-daemon
+Restart=on-failure
+RestartSec=3s
+Environment=RUST_LOG=info
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
