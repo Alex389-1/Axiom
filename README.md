@@ -98,30 +98,42 @@ Download the latest release from the [Releases page](https://github.com/Alex389-
 | Fedora / RHEL / openSUSE | `.rpm` |
 | Arch / CachyOS / Manjaro | Extract from `.deb` (see below) |
 
-**Install commands:**
+**Installation Options:**
+
+#### Option A: Run / Install the AppImage (Recommended for Arch / CachyOS / Any Linux)
+
+```bash
+# 1. Run directly:
+chmod +x target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage
+./target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage
+
+# 2. (Optional) Install system-wide:
+sudo cp target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage /usr/local/bin/axiom
+sudo chmod +x /usr/local/bin/axiom
+# Now launch anytime by typing: axiom
+```
+
+#### Option B: Native Packages (.deb / .rpm)
 
 ```bash
 # Debian / Ubuntu / Mint
-sudo dpkg -i Axiom_0.1.0_amd64.deb
+sudo dpkg -i target/release/bundle/deb/Axiom_0.1.0_amd64.deb
 
 # Fedora / RHEL / openSUSE
-sudo rpm -i Axiom-0.1.0-1.x86_64.rpm
+sudo rpm -i target/release/bundle/rpm/Axiom-0.1.0-1.x86_64.rpm
 
-# Arch / CachyOS / Manjaro — extract from the .deb + copy daemon binary
+# Arch / CachyOS / Manjaro (Extract .deb + copy daemon)
 mkdir -p /tmp/axiom_install && cd /tmp/axiom_install
-ar x /path/to/Axiom_0.1.0_amd64.deb
+ar x ~/Desktop/Axiom/target/release/bundle/deb/Axiom_0.1.0_amd64.deb
 tar xf data.tar.gz
 sudo cp usr/bin/axiom-tauri /usr/bin/
 sudo cp usr/share/applications/Axiom.desktop /usr/share/applications/
 sudo cp -r usr/share/icons/hicolor /usr/share/icons/
-# Also install the daemon (required — axiom-tauri won't work without it)
-sudo cp /path/to/target/release/axiom-daemon /usr/bin/axiom-daemon
-sudo chmod +x /usr/bin/axiom-daemon
-# Then launch with:
-axiom-tauri
+sudo cp ~/Desktop/Axiom/target/release/axiom-daemon /usr/bin/axiom-daemon
+sudo chmod +x /usr/bin/axiom-daemon /usr/bin/axiom-tauri
 ```
 
-> **Note for Arch users:** `pacman` cannot install `.rpm` or `.deb` files directly — it only understands its own `.pkg.tar.zst` format. Use the extraction method above, or build from source (Option 2).
+> **Note for Arch users:** `pacman` cannot install `.rpm` or `.deb` files directly — it only understands its own `.pkg.tar.zst` format. Use Option A (AppImage) or the extraction method above.
 
 ---
 
