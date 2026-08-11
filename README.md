@@ -14,25 +14,25 @@ Axiom solves this by moving the agent logic out of the model and into a dedicate
 ```mermaid
 graph TD
     %% Main Components
-    GUI["🖥️ Tauri GUI Client"]
-    Daemon["⚙️ Rust Agent Daemon (Runtime)"]
+    GUI["Tauri GUI Client"]
+    Daemon["Rust Agent Daemon (Runtime)"]
     
     %% GUI communicates with Daemon
     GUI <-->|"IPC / WebSockets"| Daemon
     
     %% Daemon Sub-components
     subgraph Runtime ["Agent Runtime"]
-        Planner["🧠 Planner & Router"]
-        Context["📚 Context Manager"]
-        Perms["🛡️ Permissions Manager"]
+        Planner["Planner & Router"]
+        Context["Context Manager"]
+        Perms["Permissions Manager"]
     end
     Daemon --- Runtime
     
     %% External Interfaces
     subgraph Targets ["Execution Targets"]
-        LLM["🤖 Local LLM (Ollama/llama.cpp)"]
-        PTY["⌨️ Persistent Terminal (PTY)"]
-        FS["📁 Filesystem & Git"]
+        LLM["Local LLM (Ollama/llama.cpp)"]
+        PTY["Persistent Terminal (PTY)"]
+        FS["Filesystem & Git"]
     end
     
     %% Connections
@@ -68,9 +68,9 @@ Axiom is built for maximum efficiency and stability:
 
 Axiom is built with cross-platform technologies and is designed to run locally on your machine.
 
-- 🐧 **Linux (Primary Target)**: Fully supported. Tested on Arch Linux, Ubuntu, Debian, and Fedora.
-- 🍏 **macOS**: Fully supported.
-- 🪟 **Windows**: Supported. The core stack is fully compatible, though you may need minor manual configuration adjustments (e.g., using Named Pipes instead of Unix sockets, and configuring `powershell.exe` as the default shell).
+- **Linux (Primary Target)**: Fully supported. Tested on Arch Linux, Ubuntu, Debian, and Fedora.
+- **macOS**: Fully supported.
+- **Windows**: Supported. The core stack is fully compatible, though you may need minor manual configuration adjustments (e.g., using Named Pipes instead of Unix sockets, and configuring `powershell.exe` as the default shell).
 
 ---
 
