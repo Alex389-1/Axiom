@@ -36,6 +36,14 @@ Axiom is built for maximum efficiency and stability:
 - **Backend (Daemon)**: Rust, Tokio, portable-pty, SQLite.
 - **LLM Support**: Ollama and llama.cpp (OpenAI-compatible).
 
+## Supported Platforms
+
+Axiom is built with cross-platform technologies and is designed to run locally on your machine.
+
+- 🐧 **Linux (Primary Target)**: Fully supported. Tested on Arch Linux, Ubuntu, Debian, and Fedora.
+- 🍏 **macOS**: Fully supported.
+- 🪟 **Windows**: Supported. The core stack is fully compatible, though you may need minor manual configuration adjustments (e.g., using Named Pipes instead of Unix sockets, and configuring `powershell.exe` as the default shell).
+
 ---
 
 ## Installation & Setup
