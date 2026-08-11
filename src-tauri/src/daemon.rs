@@ -123,13 +123,26 @@ pub async fn start_daemon_if_needed(app: &AppHandle) -> anyhow::Result<()> {
         std::fs::create_dir_all(parent).ok();
     }
 
-    // Find the daemon binary next to the current executable
-    let daemon_bin = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join("axiom-daemon")))
-        .unwrap_or_else(|| std::path::PathBuf::from("axiom-daemon"));
+    // Find the daemon binary across multiple candidate locations
+    use tauri::Manager;
+    let mut candidate_paths = Vec::new();
 
-    if daemon_bin.exists() {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            candidate_paths.push(parent.join("axiom-daemon"));
+        }
+    }
+    if let Ok(res_dir) = app.path().resource_dir() {
+        candidate_paths.push(res_dir.join("axiom-daemon"));
+        candidate_paths.push(res_dir.join("_up_/target/release/axiom-daemon"));
+    }
+    candidate_paths.push(std::path::PathBuf::from("/usr/bin/axiom-daemon"));
+    candidate_paths.push(std::path::PathBuf::from("/usr/local/bin/axiom-daemon"));
+
+    let daemon_bin = candidate_paths.into_iter().find(|p| p.exists());
+
+    if let Some(daemon_bin) = daemon_bin {
+        info!("Spawning daemon from {}", daemon_bin.display());
         tokio::process::Command::new(&daemon_bin)
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start daemon: {}", e))?;
@@ -150,7 +163,7 @@ pub async fn start_daemon_if_needed(app: &AppHandle) -> anyhow::Result<()> {
             warn!("Daemon did not become ready within 10s at {}", socket.display());
         }
     } else {
-        warn!("Daemon binary not found at {}; skipping auto-start", daemon_bin.display());
+        warn!("Daemon binary not found in candidate paths; skipping auto-start");
     }
 
     Ok(())
