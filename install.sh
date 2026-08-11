@@ -27,6 +27,12 @@ fi
 if [ -f /etc/arch-release ]; then
     echo "📦 Installing Linux system dependencies for Tauri (Arch/Manjaro)..."
     sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file xdotool openssl libappindicator-gtk3 librsvg speech-dispatcher espeak-ng squashfs-tools
+    # Create Debian-compatible WebKit symlinks needed by the Tauri AppImage bundler
+    sudo mkdir -p /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
+    sudo ln -sf /usr/lib/webkit2gtk-4.1/WebKitNetworkProcess \
+        /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 2>/dev/null || true
+    sudo ln -sf /usr/lib/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so \
+        /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so 2>/dev/null || true
 fi
 
 # 4. Install Node dependencies
