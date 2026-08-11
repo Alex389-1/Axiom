@@ -26,7 +26,6 @@ export function Sidebar() {
     chats,
     activeChatId,
     sidebarCollapsed,
-    projectPath,
     addChat,
     deleteChat,
     selectChat,

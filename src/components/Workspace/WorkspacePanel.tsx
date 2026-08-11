@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAppStore } from '../../store';
 import { LayoutGrid, Server, Cpu, Clock, FolderOpen } from 'lucide-react';
 
