@@ -1,37 +1,44 @@
 # Axiom - Fast Local AI Agent
 
-Axiom is a powerful, lightning-fast local AI coding assistant and desktop application built with **Tauri v2**, **React**, **TypeScript**, and **Rust**. Axiom connects to your local LLMs (like Ollama and Llama.cpp) to provide an integrated agentic workspace directly on your machine.
+Axiom is a powerful, lightning-fast local AI coding assistant and desktop application built with **Tauri v2**, **React**, **TypeScript**, and **Rust**. 
+
+**Core Idea:** Axiom lets fast, non-thinking local models use tools through an external **Agent Runtime**, instead of requiring the model itself to support native reasoning or tool calling. The model doesn't need to be an agent — the runtime makes it an agent.
 
 ![Axiom](public/tauri.svg)
 
-## Features
+## How It Works
 
-- **Local LLM Integration**: Connects seamlessly with local inference engines (Ollama, Llama.cpp).
-- **Agentic Workflows**: Includes built-in agent features, timeline visualizations, and background daemon support.
-- **Premium UI/UX**: Dark-themed, highly responsive interface with dynamic layouts, sleek custom markdown rendering, and collapsible panels.
-- **Code Focused**: Native code block styling, built-in "Copy" buttons, language tags, and seamless file attachment processing.
-- **Voice Integration**: Built-in voice dictation (speech-to-text) and read-aloud functionality.
-- **Customizable**: Control Model settings, System Prompts, Temperature, and Max Tokens easily.
-- **Privacy First**: Everything runs locally on your machine. No cloud, no telemetry.
+Existing agent GUIs assume the local model supports native tool calling, structured function calls, and agentic planning. This often fails with smaller or faster models.
+
+Axiom solves this by moving the agent logic out of the model and into a dedicated **Rust-based Agent Runtime**:
+```text
+GUI Client → Agent Runtime (Planner, Tool Router, Context Manager, Permissions, State) → Local LLM / Terminal / Filesystem
+```
+
+### 1. Tool-Calling Reliability Layer
+For smaller models (e.g. 7B/14B parameters), Axiom uses a robust two-step reliability layer:
+- **Constrained Generation:** Uses GBNF grammars or JSON-schema mode at the provider level to force valid tool schema generation.
+- **Repair/Retry Parser:** If constraints aren't available, Axiom parses free text natively, catching errors and re-prompting the model automatically on failures before falling back to ReAct-style extraction.
+
+### 2. Persistent Terminal & Background Daemon
+Axiom never owns the shell process directly in the GUI. Instead, a **PTY Manager** in the background daemon maintains your working directory, environment, shell history, and running processes (like `npm run dev` or `cargo test`). The terminal survives GUI panel closes and restarts.
+
+### 3. Session-Scoped Permissions
+Axiom implements a smart permission system to prevent fatigue during iterative loops. You can grant **Allow for Session** or **Allow for Project** permissions to specific tool categories (e.g. `EXECUTE`). High-risk commands (`sudo`, `rm -rf`) bypass caching and will always explicitly prompt for permission.
+
+### 4. Smart Context Management
+Axiom does not blindly dump your repository into the context window. It uses a deterministic keyword and `ripgrep`-based retrieval strategy to find exact matches across your project, alongside your recent terminal outputs, git diffs, and project manifests—strictly capped by a token budget.
 
 ## Technology Stack
 
-- **Frontend**: React 19, TypeScript, Vite, Vanilla CSS
-- **Backend / Daemon**: Rust, Tauri v2, Tokio
-- **Icons & Markdown**: Lucide React, React Markdown
+Axiom is built for maximum efficiency and stability:
+- **Frontend**: Tauri v2, React 19, TypeScript, Vite, Vanilla CSS.
+- **Backend (Daemon)**: Rust, Tokio, portable-pty, SQLite.
+- **LLM Support**: Ollama and llama.cpp (OpenAI-compatible).
 
 ---
 
 ## Installation & Setup
-
-### Prerequisites
-
-Ensure you have the following installed on your system:
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Node.js](https://nodejs.org/en/) (v18 or higher)
-- [Ollama](https://ollama.com/) (For local LLM inference)
-
-### 1. Clone the Repository
 
 ### Quick Setup (One-Command)
 
@@ -46,53 +53,39 @@ chmod +x install.sh
 
 If you prefer to set up manually:
 
-**1. Install Dependencies**
-Install the Node dependencies for the frontend:
+**1. Install Prerequisites**
+Ensure you have [Rust](https://www.rust-lang.org/tools/install), [Node.js](https://nodejs.org/en/) (v18+), and [Ollama](https://ollama.com/) installed.
 
+**2. Clone & Install**
 ```bash
+git clone https://github.com/Alex389-1/Axiom.git
+cd Axiom
 npm install
 ```
 
-### 3. Start the Development Server
-
-To start the application in development mode (which spins up both the Vite frontend server and the Tauri Rust backend):
-
+**3. Run the Development Server**
 ```bash
 npm run tauri dev
 ```
 
-### 4. Build for Production
-
-When you are ready to package the app into a standalone executable (AppImage, deb, dmg, or exe depending on your OS):
-
+**4. Build for Production**
 ```bash
 npm run tauri build
 ```
-
-The compiled binaries will be located in the `src-tauri/target/release/bundle/` directory.
+Compiled binaries will be available in `src-tauri/target/release/bundle/`.
 
 ---
 
 ## Uninstallation
 
-If you wish to remove Axiom and clean up all its dependencies and build artifacts from your machine, you can run the provided uninstall script:
+To completely remove Axiom, its Node dependencies, and Rust build artifacts, you can run the provided uninstall script:
 
 ```bash
 chmod +x uninstall.sh
 ./uninstall.sh
 ```
 
-To completely remove the source code, delete the repository directory:
-```bash
-cd ..
-rm -rf Axiom
-```
-
 ---
-
-## Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Alex389-1/Axiom/issues).
 
 ## License
 
