@@ -49,7 +49,7 @@ impl ContextManager {
 
         if !tool_specs_json.is_empty() {
             prompt.push_str(&format!(
-                "\n\n# Tools Available\nYou have access to the following tools to interact with the user's system. You may call a tool by outputting a JSON object matching this schema: {{\"tool\": \"<tool_name>\", \"arguments\": {{...}}}}. You can output your reasoning first, but you must include the JSON object to execute the tool.\n\n{}",
+                "\n\n# Tools Available\nYou have access to local tools to perform tasks on the user's machine when needed. For general questions or greetings, answer directly in natural text. When an action is requested, call a tool by outputting a JSON object matching this schema: {{\"tool\": \"<tool_name>\", \"arguments\": {{...}}}}.\n\n{}",
                 tool_specs_json
             ));
         }
