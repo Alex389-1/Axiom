@@ -26,7 +26,7 @@ fi
 # 3b. Install Linux Dependencies (Arch/Manjaro)
 if [ -f /etc/arch-release ]; then
     echo "📦 Installing Linux system dependencies for Tauri (Arch/Manjaro)..."
-    sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file xdotool openssl libappindicator-gtk3 librsvg speech-dispatcher espeak-ng
+    sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file xdotool openssl libappindicator-gtk3 librsvg speech-dispatcher espeak-ng squashfs-tools
 fi
 
 # 4. Install Node dependencies
@@ -36,4 +36,4 @@ node node_modules/esbuild/install.js 2>/dev/null || true
 
 echo "✅ Setup Complete!"
 echo "👉 To start the development server, run: npm run tauri dev"
-echo "👉 To build for production (Linux), run: APPIMAGE_EXTRACT_AND_RUN=1 npm run tauri build"
+echo "👉 To build for production (Linux), run: npm run tauri build"
