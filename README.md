@@ -11,8 +11,36 @@ Axiom is a powerful, lightning-fast local AI coding assistant and desktop applic
 Existing agent GUIs assume the local model supports native tool calling, structured function calls, and agentic planning. This often fails with smaller or faster models.
 
 Axiom solves this by moving the agent logic out of the model and into a dedicated **Rust-based Agent Runtime**:
-```text
-GUI Client → Agent Runtime (Planner, Tool Router, Context Manager, Permissions, State) → Local LLM / Terminal / Filesystem
+```mermaid
+graph TD
+    %% Main Components
+    GUI["🖥️ Tauri GUI Client"]
+    Daemon["⚙️ Rust Agent Daemon (Runtime)"]
+    
+    %% GUI communicates with Daemon
+    GUI <-->|"IPC / WebSockets"| Daemon
+    
+    %% Daemon Sub-components
+    subgraph Runtime ["Agent Runtime"]
+        Planner["🧠 Planner & Router"]
+        Context["📚 Context Manager"]
+        Perms["🛡️ Permissions Manager"]
+    end
+    Daemon --- Runtime
+    
+    %% External Interfaces
+    subgraph Targets ["Execution Targets"]
+        LLM["🤖 Local LLM (Ollama/llama.cpp)"]
+        PTY["⌨️ Persistent Terminal (PTY)"]
+        FS["📁 Filesystem & Git"]
+    end
+    
+    %% Connections
+    Planner --> LLM
+    Planner --> PTY
+    Planner --> FS
+    Context -.->|"Reads Context"| FS
+    Perms -.->|"Gates Actions"| PTY
 ```
 
 ### 1. Tool-Calling Reliability Layer
