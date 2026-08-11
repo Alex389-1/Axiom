@@ -90,9 +90,17 @@ When using deeply aligned or "thinking" models (like `deepseek-r1` or heavily fi
 
 ### Quick Setup (One-Command)
 
-If you are on Linux or macOS, you can run our all-in-one setup script. It will automatically check for Node.js, install Rust, install necessary system dependencies, and download the Node packages:
+If you are on Linux or macOS, you can clone and run the complete setup script in a single command. It will check for Node.js, install Rust, install necessary system dependencies, download Node packages, and launch Axiom:
 
 ```bash
+git clone https://github.com/Alex389-1/Axiom.git && cd Axiom && chmod +x install.sh && ./install.sh
+```
+
+Or run step-by-step after cloning:
+
+```bash
+git clone https://github.com/Alex389-1/Axiom.git
+cd Axiom
 chmod +x install.sh
 ./install.sh
 ```
