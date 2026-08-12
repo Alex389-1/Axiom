@@ -1,30 +1,34 @@
 #!/bin/bash
 set -e
 
-echo "🗑️ Starting Axiom Uninstallation..."
+echo "🗑️ Starting Axiom Complete Uninstallation..."
 
-# 1. Ask for confirmation
-read -p "Are you sure you want to completely remove Axiom and its dependencies? (y/N) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    echo "❌ Uninstallation aborted."
-    exit 1
+# 1. Stop all Axiom background processes
+echo "🛑 Stopping running Axiom processes..."
+pkill -9 -f axiom-daemon 2>/dev/null || true
+pkill -9 -f axiom-tauri 2>/dev/null || true
+
+# 2. Remove installed system binaries & directories
+echo "🧹 Removing installed binaries..."
+if [ -d "/opt/Axiom" ]; then
+    sudo rm -rf /opt/Axiom
 fi
+sudo rm -f /usr/local/bin/axiom 2>/dev/null || true
+sudo rm -f /usr/bin/axiom-tauri 2>/dev/null || true
+sudo rm -f /usr/bin/axiom-daemon 2>/dev/null || true
 
-# 2. Remove Node modules
-echo "🧹 Removing Node.js dependencies..."
-rm -rf node_modules package-lock.json
+# 3. Remove Desktop Launcher entries
+echo "🧹 Removing Desktop menu entries..."
+rm -f ~/.local/share/applications/Axiom.desktop 2>/dev/null || true
+if [ -f "/usr/share/applications/Axiom.desktop" ]; then
+    sudo rm -f /usr/share/applications/Axiom.desktop 2>/dev/null || true
+fi
+update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
-# 3. Remove Rust build artifacts
-echo "🧹 Removing Rust build artifacts..."
-rm -rf src-tauri/target src-tauri/Cargo.lock
+# 4. Remove runtime sockets and configs
+echo "🧹 Cleaning runtime sockets & data..."
+rm -rf /run/user/$(id -u)/axiom/ 2>/dev/null || true
+rm -rf ~/.config/axiom/ 2>/dev/null || true
+rm -rf ~/.cache/axiom/ 2>/dev/null || true
 
-# 4. Remove daemon data if any (optional, let's just delete the socket/logs if they exist)
-echo "🧹 Removing Axiom daemon artifacts..."
-rm -f /run/user/$(id -u)/axiom/axiom-daemon.sock 2>/dev/null || true
-rm -rf ~/.gemini/antigravity-ide/brain/ 2>/dev/null || true
-
-echo "✅ Uninstallation Complete!"
-echo "If you want to remove the source code entirely, simply delete this directory:"
-echo "rm -rf $(pwd)"
+echo "✅ Axiom has been completely uninstalled from your system!"

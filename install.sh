@@ -1,45 +1,68 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Axiom Setup..."
+echo "🚀 Installing Axiom Cleanly..."
 
-# 1. Check if Node.js is installed
-if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed. Please install Node.js (v18+) and try again."
-    exit 1
+# 1. Kill running instances
+pkill -9 -f axiom-daemon 2>/dev/null || true
+pkill -9 -f axiom-tauri 2>/dev/null || true
+rm -rf /run/user/$(id -u)/axiom/ 2>/dev/null || true
+
+# 2. Build release AppImage package if needed
+if [ ! -f "target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage" ]; then
+    echo "📦 Building release AppImage..."
+    cargo build --bin axiom-daemon --release
+    npm run tauri build -- --bundles appimage
 fi
 
-# 2. Check if Rust is installed
-if ! command -v cargo &> /dev/null; then
-    echo "❌ Rust and Cargo are not installed. Installing Rust..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    source "$HOME/.cargo/env"
+# 3. Clean target install location
+echo "🧹 Preparing /opt/Axiom..."
+if [ -d "/opt/Axiom" ]; then
+    sudo rm -rf /opt/Axiom
+fi
+sudo mkdir -p /opt/Axiom
+
+# 4. Extract AppImage to /opt/Axiom
+echo "📦 Extracting package to /opt/Axiom..."
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
+/home/alex/Desktop/Axiom/target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage --appimage-extract >/dev/null 2>&1
+sudo cp -r squashfs-root/* /opt/Axiom/
+rm -rf "$TMP_DIR"
+cd /home/alex/Desktop/Axiom
+
+# 5. Set up binaries and symlinks
+echo "🔗 Creating system symlinks..."
+sudo ln -sf /opt/Axiom/AppRun /usr/local/bin/axiom
+sudo mkdir -p /opt/Axiom/usr/bin
+if [ -f "/opt/Axiom/usr/lib/Axiom/_up_/target/release/axiom-daemon" ]; then
+    sudo ln -sf /opt/Axiom/usr/lib/Axiom/_up_/target/release/axiom-daemon /opt/Axiom/usr/bin/axiom-daemon
 fi
 
-# 3. Install Linux Dependencies (Ubuntu/Debian)
-if [ -f /etc/debian_version ]; then
-    echo "📦 Installing Linux system dependencies for Tauri (Debian/Ubuntu)..."
-    sudo apt-get update
-    sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev speech-dispatcher espeak-ng
+# Clean old /usr/bin files if present
+if [ -f "/usr/bin/axiom-tauri" ]; then
+    sudo rm -f /usr/bin/axiom-tauri 2>/dev/null || true
+fi
+if [ -f "/usr/bin/axiom-daemon" ]; then
+    sudo rm -f /usr/bin/axiom-daemon 2>/dev/null || true
 fi
 
-# 3b. Install Linux Dependencies (Arch/Manjaro)
-if [ -f /etc/arch-release ]; then
-    echo "📦 Installing Linux system dependencies for Tauri (Arch/Manjaro)..."
-    sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file xdotool openssl libappindicator-gtk3 librsvg speech-dispatcher espeak-ng squashfs-tools
-    # Create Debian-compatible WebKit symlinks needed by the Tauri AppImage bundler
-    sudo mkdir -p /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
-    sudo ln -sf /usr/lib/webkit2gtk-4.1/WebKitNetworkProcess \
-        /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess 2>/dev/null || true
-    sudo ln -sf /usr/lib/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so \
-        /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so 2>/dev/null || true
-fi
+# 6. Install desktop launcher
+echo "🖥️ Installing Desktop entry..."
+mkdir -p ~/.local/share/applications
+cat << 'EOF' > ~/.local/share/applications/Axiom.desktop
+[Desktop Entry]
+Categories=Utility;Development;
+Comment=Axiom — GUI for local LLMs
+Exec=/usr/local/bin/axiom
+StartupWMClass=axiom-tauri
+Icon=axiom-tauri
+Name=Axiom
+Terminal=false
+Type=Application
+EOF
+chmod +x ~/.local/share/applications/Axiom.desktop
+update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
-# 4. Install Node dependencies
-echo "📦 Installing Node.js dependencies..."
-npm install
-node node_modules/esbuild/install.js 2>/dev/null || true
-
-echo "✅ Setup Complete!"
-echo "👉 To start the development server, run: npm run tauri dev"
-echo "👉 To build for production (Linux), run: npm run tauri build"
+echo "✅ Axiom installation complete!"
+echo "Run 'axiom' in your terminal or click Axiom in your App Launcher."
