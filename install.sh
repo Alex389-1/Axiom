@@ -31,6 +31,9 @@ sudo cp -r squashfs-root/* /opt/Axiom/
 rm -rf "$TMP_DIR"
 cd /home/alex/Desktop/Axiom
 
+# Fix APPDIR in /opt/Axiom/AppRun so GTK plugin hooks find /opt/Axiom/usr
+sudo sed -i '7a export APPDIR="$this_dir"' /opt/Axiom/AppRun 2>/dev/null || true
+
 # 5. Set up binaries and symlinks
 echo "🔗 Creating system symlinks..."
 sudo ln -sf /opt/Axiom/AppRun /usr/local/bin/axiom
@@ -54,7 +57,7 @@ cat << 'EOF' > ~/.local/share/applications/Axiom.desktop
 [Desktop Entry]
 Categories=Utility;Development;
 Comment=Axiom — GUI for local LLMs
-Exec=/usr/local/bin/axiom
+Exec=env APPIMAGE_EXTRACT_AND_RUN=1 /home/alex/Desktop/Axiom/target/release/bundle/appimage/Axiom_0.1.0_amd64.AppImage
 StartupWMClass=axiom-tauri
 Icon=axiom-tauri
 Name=Axiom
