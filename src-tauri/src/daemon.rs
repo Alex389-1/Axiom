@@ -115,10 +115,19 @@ impl Default for DaemonClient {
 pub async fn start_daemon_if_needed(app: &AppHandle) -> anyhow::Result<()> {
     let socket = daemon_socket_path();
 
-    // Try connecting first — maybe it's already running
-    if UnixStream::connect(&socket).await.is_ok() {
-        info!("Daemon already running at {}", socket.display());
-        return Ok(());
+    // Try connecting first — verify the running daemon is alive and responsive
+    if let Ok(mut stream) = UnixStream::connect(&socket).await {
+        let ping_req = serde_json::to_string(&DaemonRequest::ListModels).unwrap_or_default() + "\n";
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        if stream.write_all(ping_req.as_bytes()).await.is_ok() && stream.flush().await.is_ok() {
+            let mut buf = [0u8; 10];
+            if tokio::time::timeout(std::time::Duration::from_millis(500), stream.read(&mut buf)).await.is_ok() {
+                info!("Daemon already running and responsive at {}", socket.display());
+                return Ok(());
+            }
+        }
+        warn!("Existing daemon at {} is unresponsive; clearing stale socket", socket.display());
+        let _ = std::fs::remove_file(&socket);
     }
 
     info!("Starting axiom-daemon...");
