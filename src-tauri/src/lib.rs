@@ -10,17 +10,17 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Register the DaemonClient as managed state so commands can access it
-            app.manage(daemon::DaemonClient::new());
+            let handle = app.handle().clone();
+            app.manage(daemon::DaemonClient::new(handle.clone()));
             app.manage(audio::AudioRecorderState::default());
 
             // Start the daemon if it's not already running (fire-and-forget)
-            let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = daemon::start_daemon_if_needed(&handle).await {
                     tracing::error!("Failed to start daemon: {}", e);
                 }
             });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
