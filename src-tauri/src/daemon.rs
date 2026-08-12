@@ -19,7 +19,6 @@ fn daemon_socket_path() -> std::path::PathBuf {
 
 /// Manages the Unix socket connection to the daemon process.
 pub struct DaemonClient {
-    stream: Mutex<Option<UnixStream>>,
     app_handle: Option<AppHandle>,
     /// Pending events queued per session (from daemon push messages).
     events: Arc<Mutex<HashMap<String, Vec<serde_json::Value>>>>,
@@ -28,17 +27,15 @@ pub struct DaemonClient {
 impl DaemonClient {
     pub fn new(app_handle: AppHandle) -> Self {
         Self {
-            stream: Mutex::new(None),
             app_handle: Some(app_handle),
             events: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    async fn connect(&self) -> Result<(), String> {
+    async fn connect(&self) -> Result<UnixStream, String> {
         let socket = daemon_socket_path();
         if let Ok(s) = UnixStream::connect(&socket).await {
-            *self.stream.lock().await = Some(s);
-            return Ok(());
+            return Ok(s);
         }
 
         if let Some(app) = &self.app_handle {
@@ -47,93 +44,39 @@ impl DaemonClient {
                 return Err(format!("Failed to start daemon: {}", e));
             }
             if let Ok(s) = UnixStream::connect(&socket).await {
-                *self.stream.lock().await = Some(s);
-                return Ok(());
+                return Ok(s);
             }
         }
 
         Err(format!("Cannot connect to daemon at {}", socket.display()))
     }
 
-    /// Send a request and wait for the response (auto-reconnects and retries on failure).
+    /// Send a request and wait for the response (isolated socket connection per request).
     pub async fn send(&self, request: DaemonRequest) -> Result<DaemonResponse, String> {
-        for attempt in 0..2 {
-            {
-                let guard = self.stream.lock().await;
-                if guard.is_none() {
-                    drop(guard);
-                    if let Err(e) = self.connect().await {
-                        if attempt == 1 {
-                            return Err(e);
-                        }
-                        continue;
-                    }
-                }
-            }
+        let mut stream = self.connect().await?;
 
-            let mut guard = self.stream.lock().await;
-            let stream = match guard.as_mut() {
-                Some(s) => s,
-                None => continue,
-            };
+        let mut json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+        json.push('\n');
+        stream
+            .write_all(json.as_bytes())
+            .await
+            .map_err(|e| e.to_string())?;
+        stream.flush().await.map_err(|e| e.to_string())?;
 
-            let mut json = match serde_json::to_string(&request) {
-                Ok(j) => j,
-                Err(e) => return Err(e.to_string()),
-            };
-            json.push('\n');
+        let mut reader = BufReader::new(stream);
+        let mut response_line = String::new();
+        reader
+            .read_line(&mut response_line)
+            .await
+            .map_err(|e| format!("Read error: {}", e))?;
 
-            if stream.write_all(json.as_bytes()).await.is_err() || stream.flush().await.is_err() {
-                *guard = None;
-                continue;
-            }
-
-            let mut response_bytes = Vec::new();
-            let mut buf = [0u8; 1];
-            let mut read_ok = true;
-            loop {
-                use tokio::io::AsyncReadExt;
-                match stream.read(&mut buf).await {
-                    Ok(0) => {
-                        read_ok = false;
-                        break;
-                    }
-                    Ok(_) => {
-                        if buf[0] == b'\n' {
-                            break;
-                        }
-                        response_bytes.push(buf[0]);
-                    }
-                    Err(_) => {
-                        read_ok = false;
-                        break;
-                    }
-                }
-            }
-
-            if !read_ok || response_bytes.is_empty() {
-                *guard = None;
-                continue;
-            }
-
-            let response_line = match String::from_utf8(response_bytes) {
-                Ok(l) => l,
-                Err(e) => return Err(format!("UTF-8 error: {}", e)),
-            };
-
-            match serde_json::from_str(&response_line) {
-                Ok(resp) => return Ok(resp),
-                Err(e) => {
-                    if attempt == 1 {
-                        return Err(format!("Parse error: {}: {}", e, response_line));
-                    }
-                    *guard = None;
-                    continue;
-                }
-            }
+        let trimmed = response_line.trim();
+        if trimmed.is_empty() {
+            return Err("Daemon returned empty response".to_string());
         }
 
-        Err("Daemon communication failed after retries".to_string())
+        serde_json::from_str(trimmed)
+            .map_err(|e| format!("Parse error: {}: {}", e, trimmed))
     }
 
     /// Drain queued events for a session (called by the poll_events command).
