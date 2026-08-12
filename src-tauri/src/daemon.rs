@@ -177,12 +177,18 @@ pub async fn start_daemon_if_needed(app: &AppHandle) -> anyhow::Result<()> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
             candidate_paths.push(parent.join("axiom-daemon"));
+            candidate_paths.push(parent.join("../lib/Axiom/axiom-daemon"));
+            candidate_paths.push(parent.join("../lib/Axiom/_up_/target/release/axiom-daemon"));
+            candidate_paths.push(parent.join("../lib/axiom-tauri/axiom-daemon"));
+            candidate_paths.push(parent.join("../lib/axiom-tauri/_up_/target/release/axiom-daemon"));
         }
     }
     if let Ok(res_dir) = app.path().resource_dir() {
         candidate_paths.push(res_dir.join("axiom-daemon"));
         candidate_paths.push(res_dir.join("_up_/target/release/axiom-daemon"));
     }
+    candidate_paths.push(std::path::PathBuf::from("/opt/Axiom/usr/bin/axiom-daemon"));
+    candidate_paths.push(std::path::PathBuf::from("/opt/Axiom/usr/lib/Axiom/_up_/target/release/axiom-daemon"));
     candidate_paths.push(std::path::PathBuf::from("/usr/bin/axiom-daemon"));
     candidate_paths.push(std::path::PathBuf::from("/usr/local/bin/axiom-daemon"));
 
