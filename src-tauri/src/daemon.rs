@@ -87,6 +87,11 @@ impl DaemonClient {
             }
         }
 
+        if response_bytes.is_empty() {
+            *guard = None;
+            return Err("Daemon disconnected".to_string());
+        }
+
         let response_line = String::from_utf8(response_bytes).map_err(|e| format!("UTF-8 error: {}", e))?;
 
         serde_json::from_str(&response_line).map_err(|e| format!("Parse error: {}: {}", e, response_line))

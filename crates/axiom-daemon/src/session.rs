@@ -83,21 +83,18 @@ impl SessionManager {
         let model = model.unwrap_or_else(|| self.config.model.model.clone());
         let project = project_path.as_ref().map(PathBuf::from);
 
-        // Get or probe model profile (fallback to Structured mode if probe fails)
+        // Fast profile lookup or default profile — do not block session creation on model probing
         let profile = match self.prober.get_cached(&model) {
             Some(p) => p,
-            None => {
-                info!("No cached profile for {}; probing...", model);
-                self.prober.probe(&model, self.provider.as_ref()).await.unwrap_or_else(|_| ModelProfile {
-                    model: model.clone(),
-                    tool_mode: axiom_core::types::ToolCallingMode::Structured,
-                    supports_thinking: false,
-                    supports_constrained_decoding: self.provider.supports_constrained_decoding(),
-                    detected_at: "fallback".to_string(),
-                    last_verified: Utc::now(),
-                    model_hash: None,
-                })
-            }
+            None => ModelProfile {
+                model: model.clone(),
+                tool_mode: axiom_core::types::ToolCallingMode::Structured,
+                supports_thinking: false,
+                supports_constrained_decoding: self.provider.supports_constrained_decoding(),
+                detected_at: "default".to_string(),
+                last_verified: Utc::now(),
+                model_hash: None,
+            },
         };
 
         // Create tool registry
