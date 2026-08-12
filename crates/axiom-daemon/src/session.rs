@@ -59,7 +59,19 @@ impl SessionManager {
     }
 
     pub async fn list_models(&self) -> Result<Vec<ModelInfo>> {
-        Ok(self.provider.list_models().await.map_err(|e| anyhow::anyhow!(e.to_string()))?)
+        let mut models = self.provider.list_models().await.unwrap_or_default();
+        let cached = self.prober.get_all_cached();
+        for (name, _) in cached {
+            if !models.iter().any(|m| m.name == name) {
+                models.push(ModelInfo {
+                    name,
+                    provider: self.provider.name().to_string(),
+                    size_bytes: None,
+                    modified_at: None,
+                });
+            }
+        }
+        Ok(models)
     }
 
     pub async fn create_session(

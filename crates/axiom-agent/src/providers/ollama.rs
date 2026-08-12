@@ -18,12 +18,16 @@ pub struct OllamaProvider {
 
 impl OllamaProvider {
     pub fn new(base_url: impl Into<String>) -> Self {
+        let mut url: String = base_url.into().trim_end_matches('/').to_string();
+        if url.contains("localhost") {
+            url = url.replace("localhost", "127.0.0.1");
+        }
         Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(300))
                 .build()
                 .expect("HTTP client"),
-            base_url: base_url.into().trim_end_matches('/').to_string(),
+            base_url: url,
         }
     }
 }
